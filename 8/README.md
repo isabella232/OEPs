@@ -63,6 +63,7 @@ Base attributes are always part of the DDO schema. Those attributes could be man
 Attribute       |   Type        |   Required    | Description
 ----------------|---------------|---------------|----------------------
 **name**        | Text          | Yes           | Descriptive name of the Asset
+**type**        | Text          | Yes           | Type of the Asset. Helps to filter by kind of asset, initially ("dataset", "algorithm", "container", "workflow", "other")
 **description** | Text          | No            | Details of what the resource is. For a data set explain what the data represents and what it can be used for
 **dateCreated** | DateTime      | Yes           | The date on which  was created or was added
 **size**        | Text          | Yes           | Size of the asset (e.g. 18mb). In the absence of a unit (mb, kb etc.), KB will be assumed
@@ -96,15 +97,18 @@ Attribute       |   Type        |   Required    | Description
 
 These are examples of attributes that can enhance the discoverability of a resource:
 
-* checksum: Checksum of attributes to be able to compare if there are changes in the asset that you are purchasing.
-Empty if there is not sent.
-* sla: Service Level Agreement
-* industry
-* category: can be assigned to a category in addition to having tags
-* note: any additional information worthy of highlighting (description maybe sufficient)
-* updateFrequency: how often are updates expected (seldome, annual, quarterly, etc.), or is the resource static (never expected to get updated)
-* termsOfService
-* privacy
+| Attribute         | Description                                                                                                                  |
+| -                 | -                                                                                                                            |
+| checksum          | Checksum of attributes to be able to compare if there are changes in the asset that you are purchasing.                      |
+| sla               | Service Level Agreement                                                                                                      |
+| industry          |                                                                                                                              |
+| category          | can be assigned to a category in addition to having tags                                                                     |
+| updateFrequency   | how often are updates expected (seldome, annual, quarterly, etc.), or is the resource static (never expected to get updated) |
+| termsOfService    |                                                                                                                              |
+| privacy           |                                                                                                                              |
+| keyword           | A list of keywords/tags describing a dataset                                                                                 |
+| structured-markup | A link to machine readable structured markup (such as ttl/json-ld/rdf) describing the dataset                                |
+|                   |                                                                                                                              |
 
 Additional attributes are totally free to add and can be defined by the publisher of the DDO, in addition to the base attributes
 
@@ -117,6 +121,7 @@ Here a representation of an example Asset using the schema described:
 {
     "base": {
         "name": "UK Weather information 2011",
+        "type": "dataset",
         "description": "Weather information of UK including temperature and humidity",
         "size": "3.1gb",
         "dateCreated": "2012-02-01T10:55:11+00:00",
@@ -145,7 +150,9 @@ Here a representation of an example Asset using the schema described:
         "schema": "Binary Votting"
     },
     "additionalInformation" : {
-        "updateFrecuency": "yearly"
+        "updateFrecuency": "yearly",
+        "structuredMarkup" : [ { "uri" : "http://skos.um.es/unescothes/C01194/jsonld", "mediaType" : "application/ld+json"},
+                               { "uri" : "http://skos.um.es/unescothes/C01194/turtle", "mediaType" : "text/turtle"}]
     }
 }
 ```
