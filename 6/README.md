@@ -18,15 +18,20 @@ Table of Contents
       * [Change Process](#change-process)
       * [Language](#language)
       * [Motivation](#motivation)
-      * [Specification](#specification)
-         * [Proposed Solution](#proposed-solution)
+      * [Questions](#questions)
+      * [API Groups](#api-groups)
+      * [Categorization](#categorization-of-invocation-services)
+      * [Parties](#parties)
+      * [Use case description](#high-level-use-case-description)
+      * [API  definition](#api-definition)
          * [Registering a Service](#registering-a-service)
          * [Retrieve metadata of an Service](#retrieve-metadata-of-a-service)
          * [Updating Service Metadata](#updating-service-metadata)
          * [Retiring a Service](#retiring-a-service)
          * [Invoking a Service](#invoking-a-service)
-         * [Providing Service proof](#proving-a-service)
-         * [Consuming Service results](#consuming-service-results)
+         * [Get status of invocation](#get-status)
+         * [Get result of invocation](#get-result)
+         * [Get proof of service delivery](#get-proof)
          * [Targeted Release](#targeted-release)
       * [Copyright Waiver](#copyright-waiver)
 
@@ -34,6 +39,11 @@ Table of Contents
 <!--te-->
 
 <a name="service-invocation"></a>
+
+# Introduction
+
+Ocean protocol aims to build marketplaces that enable exchange of services that are meaningful in the data economy. Storage, compute, data cleaning, prediction, segmentation and other AIs are some examples of services that would be useful on the Ocean network. This document proposes APIs on service delivery, brokerage and consumption.
+
 # Service Invocation
 
 The Service Invocation API (**INVOKE**) is a specification for the Ocean Protocol to register and invoke services.
@@ -48,6 +58,18 @@ Compute services are defined as services available on the Ocean Network that
 This OEP does not prescribe the exact type of services offered. It is open to service provider implementations to define there, providing that they conform with this API specification
 This OEP does not cover service discovery.
 The OEP is agnostic to the location of service delivery records, whether on, or off chain.
+
+## What is a service
+
+For the sake of simplicity, we can assume that services are of two types. 
+
+A local service can be invoked via a library call, using an object oriented language:
+
+`Service.doSomethingUseful(dataset, other arguments..)`
+
+A remote service could be invoked via an HTTP call. 
+
+`GET http://weatherservice/my/city`
 
 ### Examples of services
 
@@ -89,9 +111,25 @@ Requirements are:
 * VERIFIER validates PROOF
 * SERVICE CONTRACT must be settled and any tokens transfered after receipt of valid PROOF
 * OUTPUT ASSETS, if created, must be identified and communicated to the CONSUMER. These assets may be registered as Ocean Assets.
-  
+ 
+## Questions
+
+ - What is the difference between Invoke and Compute service
+ 
+ - Let's use a series of examples to demonstrate this:
+ 
+ | Service                       | Accepts                                                         | Parametrizable?      | Returns                                          |
+ |-------------------------------|-----------------------------------------------------------------|----------------------|--------------------------------------------------|
+ | Addition service              | 2 numbers, a and b                                              | no                   | a+b                                              |
+ | Numerical computation service | a list of numbers and a function to run                         | yes, with a function | result of function applied with a list of inputs |
+ | Compute service               | an environment (e.g. Docker image) and a script (e.g script.py) | yes,with a script    | the result of script execution                   |
+
+It can be observed that a generic compute service is simply a service that is parameterizable, one that allows the user to specify a host environment
+(e.g. java or Python version as a Docker image) as well as the script to run (e.g. a .jar file or .py script)
+Therefore, for the rest of this discussion, we will assume that a *Compute Service* is simply a special case of an *Invokable service*
+
 <a name="specification"></a>
-## Specification 
+## API Groups 
 
 The **Service Metadata** information should be managed using an API on the Ocean. 
 
@@ -114,14 +152,14 @@ This API exposes the following capabilities in the Ocean Agent related to differ
 
 * Get the proof of service delivery completion
 
----
+## Restrictions 
 
 The following restrictions apply during the design/implementation of this OEP:
 
 * The SERVICES registered in the system MUST be associated to the PROVIDER registering the services
 * AGENT MUST NOT store or rely on any other information about the Services during this process
 
-## Types
+## Categorization of invocation services 
 
 An invocation service can be categorized on these dimensions:
 
@@ -137,7 +175,8 @@ An invocation service can be categorized on these dimensions:
 | Examples                    | Notes                                                                  |
 |-----------------------------|------------------------------------------------------------------------|
 | Ocean registered assets     | The invoke payload may provide a list of Ocean Asset_IDs               |
-| Non-ocean registered assets | The invoke payload may reference data assets that are unknown to Ocean |
+| Non-ocean registered assets | The invoke payload may reference data assets (e.g. URIs)that are unknown to Ocean |
+| Raw payload                 | The invoke payload contains the data required to perform the service   |
 
 ### Outputs
 
@@ -150,7 +189,25 @@ An invocation service can be categorized on these dimensions:
 
 The invocation API could choose to return result of invocation synchronously(i.e. returning the result in the same call) or asynchronously .
 
-# Proposed Solution
+### Level of Ocean integration
+
+- Level 0: This is a service that is agnostic to Ocean. Example: consider a prediction service which can predict handwritten digits. It accepts a URL input, and the service takes the image at the URL and returns a prediction. 
+
+The service may be registered on Ocean by a third party, and users pay for this service using fiat currency.
+An Ocean user may want to use this service to indicate provenance (e.g prove that this prediction was indeed returned by this service.) It may be possible to create an Ocean wrapper that wraps invocations to this service (for better evidence of the provenance trail).
+
+- Level 1: This is a service that implements the invoke service API, but does not partake in service agreements (i.e, its "verification" is a no-op). It may offer the service for free (in terms of Ocean tokens), but may demand a fiat (or other token) payment for the service. Since the service is free, there is no need for escrow.
+
+- Level 2: Similar to Level 2, except that it is a paid service, and therefore may be subject to service agreement fulfilment/verification checks.
+
+- Level 3: Similar to Level 3, except  that it provides an on-chain (e.g. parachain) proof of fulfillment.
+
+| Level | Price (in ocn tokens) | service fulfilment | Implements Invoke API |
+|-------|-----------------------|--------------------|-----------------------|
+|     0 |                     0 | No                 | no                    |
+|     1 |                     0 | no                 | yes                   |
+|     2 |                    >0 | Yes(no-op)         | yes                   |
+|     3 |                >0     | Yes                | yes                   |
 
 ## Parties
 
@@ -206,9 +263,23 @@ Consumption of a service involves 4 phases:
 - Consumer invokes the job on the service provider 
 - Consumer checks if job completed successfully. 
 
+# Provenance
+
+For the perspective of provenance, a service is an entity, which interacts with other entities (such as Ocean assets) and is involved in activities. 
+
+Specifically, a service 
+
+* uses certain entities (e.g. takes Ocean assets as inputs)
+* generates entities (e.g. on output)
+* has a start and end time
+* might be informed by external communication (such as events)
+
+
 
 # API definition
 
+- the API description provided here is a guide, and could be tailored to the idioms of the implementing language. 
+- For example, object oriented implementation might allow a `job.get_result()` ,where an API with no job objects might specify `service_api.get_result(job_id)`.
 
 ## Invoking a service
 
@@ -216,17 +287,16 @@ Consumption of a service involves 4 phases:
 
 - *asset.invoke(args,payload)*
 
-| Args           | Input? | Type | Mandatory?                                                             | Notes |
-|----------------|----|---|------------------------------------------------------------------------|-------|
-| purchase token | input| String | yes  |The purchase token that is provided by Ocean on purchase of this Asset       |
-| asset id      | input| String |  yes  | The service id |
-| job id         | output | String   | no    | The job id used to track execution of the service
-|                |        |                                                                        |       |
-|                |        |                                                                        |       |
+| Args           | Input? | Type   | Mandatory? | Notes                                                                  |
+|----------------|--------|--------|------------|------------------------------------------------------------------------|
+| purchase token | input  | String | yes        | The purchase token that is provided by Ocean on purchase of this Asset |
+| asset id       | input  | String | yes        | The service id                                                         |
+| payload        | input  | json | yes        |   A json formatted documented conformant with a schema as defined by the service provider |
+| job id         | output | String | no         | The job id used to track execution of the service                      |
 
 ### HTTP
 
-- POST request to https://endpoint-url/invoke?asset-id=0xcafa&purchase-token=0xdada, with a json payload.
+- POST request to https://endpoint-url/asset-id?purchase-token=0xdada, with a json payload.
 
 ### Payload format
 
@@ -237,7 +307,7 @@ Consumption of a service involves 4 phases:
 | Ocean Inputs | A map of Ocean asset ids required for the service. Keys are argument names as specified in service metadata | no         |
 | Job config   | A map of configuration options (e.g. version of Python to use)                                              | no         |
 
-
+Schemas for the payload will be provided as a json schema (not described in this doc).
 
 ## Get Status
 
@@ -247,7 +317,7 @@ Consumption of a service involves 4 phases:
 
 ### HTTP
 
-- GET request to https://endpoint-url/invoke?job-id=<yourjobid>
+- GET request to https://endpoint-url/job-id/status
 
 ### Returns 
 
@@ -255,23 +325,23 @@ Consumption of a service involves 4 phases:
 |--------|--------|------------|--------------------------------------------------------------------|
 | status | String | yes        | Returns an enum with values Started, Completed, Failed, Inprogress |
 
-
 ## Get Result
 
 ### Python
 
 - *job.get_result()*
 
+Returns a dictionary with the keys/values similar to the payload schema
+
 ### HTTP
 
-- GET request to https://endpoint-url/result?job-id=<jobid>
+- GET request to https://endpoint-url/job-id/result
 
 ### Returns 
 
 | Args    | Type | Mandatory? | Notes                                                                    |
 |---------|------|------------|--------------------------------------------------------------------------|
-| payload | json | yes        | Returns a result payload in the format specified in the service metadata |
-|         |      |            |                                                                          |
+| payload | json/string | yes        | Returns a result payload in the format specified in the service metadata |
 
 ## Get Proof
 
@@ -279,13 +349,25 @@ Consumption of a service involves 4 phases:
 
 - *job.get_proof()*
 
+Returns a dictionary with the keys/values similar to the payload schema
+
 ### HTTP
 
 - GET request to https://endpoint-url/proof?job-id=<jobid>
 
 ### Returns 
 
-| Args    | Type | Mandatory? | Notes                                                                                                                                        |
-|---------|------|------------|----------------------------------------------------------------------------------------------------------------------------------------------|
-| payload | json | yes        | The API returns a payload object which contains the proof that the service completed. The payload format is described by the sevice metadata |
-|         |      |            |                                                                                                                                              |
+| Args    | Type        | Mandatory? | Notes                                                                                                                                        |
+|         |             |            |                                                                                                                                              |
+|---------|-------------|------------|----------------------------------------------------------------------------------------------------------------------------------------------|
+| payload | json/string | yes        | The API returns a payload object which contains the proof that the service completed. The payload format is described by the sevice metadata |
+
+<TODO> incorporate this:
+https://github.com/DEX-Company/catamaran/wiki/API-for-DSE-interactions
+
+## Payload definition
+
+- Service registration
+`
+{ "inputs" : [{"argname" : "arg1", "argtype" : "" , "mandatory" : "true"}]"}}
+`
