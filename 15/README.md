@@ -135,11 +135,11 @@ Get a meta data stored by the server.
 
 #### Inputs
 
-The metadata ID (i.e. the keccak256 hash of the metadata) is provided in the URL.
+The Asset ID (i.e. the keccak256 hash of the metadata) is provided in the URL.
 
 #### Outputs
 
-The API should return the metadata of the requested metadata ID if available, or HTTP 404 if not found.
+The API should return the metadata of the requested Asset ID if available, or HTTP 404 if not found.
 
 ```json
 
@@ -148,7 +148,7 @@ The API should return the metadata of the requested metadata ID if available, or
 ```
 
 Clients can verify the integrity of the metadata by computing the keccak256 hash of the metadata JSON and comparing to
-the requested metadata ID.
+the requested metadata ID. Metadata Agents must preserve the formatting of the JSON to ensure this is possible.
 
 -------------------------------------------------------------------------------
 ### queryMetadata
