@@ -1,3 +1,12 @@
+```
+shortname: 12/PROV
+name: Provenance for Ocean Assets
+type: Standard
+status: Raw
+editor: Kiran Karkera <kiran.karkera@dex.sg>
+contributors: Mike Anderson <mike.anderson@dex.sg>
+```
+
 # Provenance for Ocean assets and services 
 
 This document describes 
