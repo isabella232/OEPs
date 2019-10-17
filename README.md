@@ -37,6 +37,7 @@ Short Name       | Title                                             | Type     
 [12/EXEC](12)    | Execution of Computing Services                   | Standard     | Raw        | Aitor Argomaniz
 [13/DEC-PROV](13)| Decentralized Data Provenance                     | Standard     | Raw        | Aitor Argomaniz
 [15/IPFS](15)| Distributed Asset File Storage with IPFS              | Standard     | Draft        | Matthias Kretschmann
+[16/Miner](17)| Ocean Miner                                          | Standard     | Draft        | Ahmed Ali
 
 # Current Participants
 
