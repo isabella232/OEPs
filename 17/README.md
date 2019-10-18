@@ -116,23 +116,24 @@ ocean-miner register \
 
 The same Ethereum address is attached to the Brizo node.
 
+After the registeration, For each Ethereum address will be mapped to a set of verified IPFS peers in the [miner registry contract](#miner-registry-contract).
+
 
 ### 3. Publish 
-TBD
+Publish new dataset, or act as a second sourcer for an existing dataset are the same where the same datasets are identified by 
+IPFS unique hash (multihash). This
 ### 4. Retire
-TBD
+
 
 # Implementation Details
-#### protocol buffer
-
 ## Methods
 
-### Miner
+### 1. Miner
 
 #### setup libp2p crypto proto
 
-IPFS uses [Libp2p]() to manage the node discovery, key management crypto, and 
-serialize keypairs using [protocol buffer](). So we need to install libp2p crypto.proto module 
+IPFS uses [Libp2p](https://github.com/libp2p/go-libp2p-core) to manage the node discovery, key management crypto, and 
+serialize keypairs using [protocol buffer](https://developers.google.com/protocol-buffers/docs/pythontutorial). So we need to install libp2p crypto.proto scheme 
 in order to deserialize the IPFS keypairs.
 
 - Install required packages:
@@ -162,8 +163,8 @@ $ openssl asn1parse -inform TXT -i -in public.pem -strparse 19
     4:d=1  hl=4 l= 257 prim:  INTEGER           :B643126ED21D944953DF5572161CE7799F6946AC2FA55D72EF1B8817E8B95788B631F4166DE3388CCC341F7ADC6F1B532098963A8195A6EE409BC71C5F12FE47BBFF31E3F8F033EC2CF5F4AE723A71E26859F5C7D8A0A0B536B1597385DE88D5E5C6F019B0ED165EC70936C3650A684DB10A68767FD740672ECD916228E5955AF4DF10D848FFD1A0C3BB61511C3636443C187D5084893D9D12B02C3F312E25C853B2D86725B1DBDA30E268EC207C0D6BC99D312C4C1AF60AC82B1174984027F138F69779BD7733460402BB59D19B5B1BE7A42C2BBE601C316727671CF813CFBF3D334A52367E130BB5BD0BB482014055BDF6B0077286B01811DD698AD4E3BD7D
   265:d=1  hl=2 l=   3 prim:  INTEGER           :010001
 ```
-The exponent is: `010001`
-The modulus is : `B643126ED21D944953DF5572161CE7799F6946AC2FA55D72EF1B8817E8B95788B631F4166DE3388CCC341F7ADC6F1B532098963A8195A6EE409BC71C5F12FE47BBFF31E3F8F033EC2CF5F4AE723A71E26859F5C7D8A0A0B536B1597385DE88D5E5C6F019B0ED165EC70936C3650A684DB10A68767FD740672ECD916228E5955AF4DF10D848FFD1A0C3BB61511C3636443C187D5084893D9D12B02C3F312E25C853B2D86725B1DBDA30E268EC207C0D6BC99D312C4C1AF60AC82B1174984027F138F69779BD7733460402BB59D19B5B1BE7A42C2BBE601C316727671CF813CFBF3D334A52367E130BB5BD0BB482014055BDF6B0077286B01811DD698AD4E3BD7D`
+- The exponent is: `010001` (Zeros padding should be added to match the length of the modulus).
+- The modulus is : `B643126ED21D944953DF5572161CE7799F6946AC2FA55D72EF1B8817E8B95788B631F4166DE3388CCC341F7ADC6F1B532098963A8195A6EE409BC71C5F12FE47BBFF31E3F8F033EC2CF5F4AE723A71E26859F5C7D8A0A0B536B1597385DE88D5E5C6F019B0ED165EC70936C3650A684DB10A68767FD740672ECD916228E5955AF4DF10D848FFD1A0C3BB61511C3636443C187D5084893D9D12B02C3F312E25C853B2D86725B1DBDA30E268EC207C0D6BC99D312C4C1AF60AC82B1174984027F138F69779BD7733460402BB59D19B5B1BE7A42C2BBE601C316727671CF813CFBF3D334A52367E130BB5BD0BB482014055BDF6B0077286B01811DD698AD4E3BD7D`
 #### export keypairs
 
 The `exporter.py` module does:
@@ -209,7 +210,7 @@ def verify(public_key, signature, message, hash_algorithm="SHA-256"):
     return signer.verify(digested, signature)
      
 ```
-### Keeper
+### 2. Keeper
 #### verify ipfs on chain
 
 This is the contract interface of (`RSAVerifier.sol`):
@@ -234,9 +235,66 @@ This is the contract interface of (`RSAVerifier.sol`):
     bytes memory _m
  ) external view returns (uint)
 ```
-### Events
-TBD
-### Required changes
+#### miner registry contract
+This contract is meant to be a miner registry where it stores verified IPFS peers (`MinerRegistry.sol`)
+
+```javascript
+ // sha256(IPFS Peer ID)
+ 
+ struct IPFSPeer {
+    ...
+ }
+ 
+ mapping(address => IPFSPeer[] peers) miners;
+ 
+ function registerMiner(
+    bytes32 IPFSId, 
+    bytes memory signature, 
+    bytes memory exponent, 
+    bytes memory modulus
+ )
+ external
+ {
+    bytes32 data = keccak256(
+        abi.encodePacked(
+            IPFSId,
+            msg.sender
+        )
+    );
+    
+    require(
+        RSAVerifier.verifyRSAPKCS1(
+            data,
+            signature,
+            exponent,
+            modulus
+        ),
+        'Invalid IPFS peer signature'
+    );
+    
+    // push peer for this miner
+    
+    emit MinerRegistered(
+        msg.sender,
+        IPFSId
+    );
+ }
+ 
+ function retireMiner()
+    external
+ {
+    require(
+        miners[msg.sender].peers.length > 0,
+        'Miner does not exists'
+    );
+    // set miner state to retired
+ }
+```
+
+### 3. Brizo
+
 TBD
 
 # Vector Attacks
+
+### free riding attack
