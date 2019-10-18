@@ -108,7 +108,7 @@ ocean-miner register \
 - The Ethereum address, will be attached to the miner's `Brizo` node. 
 - In case of pointing to another Brizo, the miner has to provide the Brizo endpoint (This might open a question for what if Brizo need to support multiple Ethereum addresses - Brizo as a service).
 
-
+![image](images/MinerRegisteration.png)
 - [Exports deserialized IPFS peer keypairs](#export-keypairs) 
 - [Setup Libp2p crypto.proto](#setup-libp2p-crypto-proto)
 - [Sign Ethereum Address](#sign-messages-using-openssl)
@@ -116,14 +116,40 @@ ocean-miner register \
 
 The same Ethereum address is attached to the Brizo node.
 
-After the registeration, For each Ethereum address will be mapped to a set of verified IPFS peers in the [miner registry contract](#miner-registry-contract).
+After the registration, each Ethereum address will be mapped to a set of verified IPFS peers in the [miner registry contract](#miner-registry-contract).
 
 
 ### 3. Publish 
-Publish new dataset, or act as a second sourcer for an existing dataset are the same where the same datasets are identified by 
-IPFS unique hash (multihash). This
-### 4. Retire
+Publishing new dataset, or acting as a second sourcer for an existing dataset follows
+the same publish flow in the keeper contract. But the keeper contract need to group 
+the multiple DIDs to refer to the same IPFS unique hash (multihash) or the checksum.
+The required modifications is defined in [add extra checksum to multiple DIDs](#map-checksum-to-multiple-dids)
 
+### 4. Reward
+The reward will be managed by how many successful SEAs during the token reward interval. 
+The winner will be chosen randomly based on the reward distribution forumla. 
+For more details check out [OEP-16](https://github.com/oceanprotocol/OEPs/blob/feature/OEP16-providers-rewards/16/README.md).
+
+### 5. Retire
+
+Retiring miner SHOULD be simple as registering, if the miner service goes down, this implies that future SEAs won't be fulfilled, its rank will go down, and lose reputation. Also, there is a safer retire by running the following command:
+```bash
+retire all assets and the miner
+ocean-miner retire --all
+```
+![images](images/MinerRetireAll.png)
+This guarantees that, all the miner DIDs are retired and nobody won't be able to consume its service (Dataset), therefore no failed SEAs, and his reputation will still the same. If the miner decides to go back, he just need to run his miner again with the same configurations (Ethereum address, network, etc).
+
+
+However, the miner has the option to retire a single dataset by using the following command
+```
+# retire particular asset
+ocean-miner retire --did <DID>
+```
+![images](images/MinerRetireDID.png)
+This won't affect other DIDs, but will remove its reputation and rank for this dataset. One of the use cases scenario, a provider mistakenly provided wrong DID, and wanted to remove/retire this asset republish the right one.
+
+More details will be found in the implementation details.
 
 # Implementation Details
 ## Methods
@@ -268,7 +294,7 @@ This contract is meant to be a miner registry where it stores verified IPFS peer
             signature,
             exponent,
             modulus
-        ),
+        ) == 0,
         'Invalid IPFS peer signature'
     );
     
@@ -291,6 +317,14 @@ This contract is meant to be a miner registry where it stores verified IPFS peer
  }
 ```
 
+#### map checksum to multiple dids
+This modification will take place in `DIDRegistry.sol`
+
+```javascript
+mapping(bytes32 => bytes32[]) checksum2DIDs;
+
+```
+
 ### 3. Brizo
 
 TBD
@@ -298,3 +332,15 @@ TBD
 # Vector Attacks
 
 ### free riding attack
+
+In this scenario, one potential **free-riding attack** is following: 
+
+* the attacker may use `ipfs dht findprovs <cid>` to get the provider list of a particular dataset;
+* if the dataset is popular and many people download it, Ocean is more likely to distribute network rewards to the providers of this dataset;
+* attacker may search for the provider peer ID of this dataset, which is not registered with Ocean yet;
+* attacker claims himself as the provider in IPFS network and register with Ocean using his own Ethereum wallet along with other person's peer ID in IPFS;
+* as such, the attacker do not need to serve the dataset but receive the network rewards from Ocean network for free.
+
+
+# References
+TBD
