@@ -94,7 +94,7 @@ Behind the scenes, the miner register API does the following:
 - Initialize IPFS node and start the daemon
 - Configures and starts Brizo node 
 
-### 1. Register 
+### 2. Register 
 
 Registering miner requires running IPFS node (This will be handled automatically by the miner). 
 The miner initialization gets the local IPFS keypair ([public key](https://docs.ipfs.io/reference/api/cli/#ipfs-id) & [private keys](https://docs.ipfs.io/reference/api/cli/#ipfs-config-show)) 
@@ -109,15 +109,17 @@ ocean-miner register \
 - In case of pointing to another Brizo, the miner has to provide the Brizo endpoint (This might open a question for what if Brizo need to support multiple Ethereum addresses - Brizo as a service).
 
 
-- [Exports deserializeIPFS peer keypair](#export-keypairs) 
-- [Sign Ethereum Address](#sign-ethereum-address)
-- [Verify IPFS peer on-chain](#verify-IPFS-on-chain)
+- [Exports deserialized IPFS peer keypairs](#export-keypairs) 
+- [Setup Libp2p crypto.proto](#setup-libp2p-crypto-proto)
+- [Sign Ethereum Address](#sign-messages-using-openssl)
+- [Verify IPFS peer signature on-chain](#verify-ipfs-on-chain)
+
+The same Ethereum address is attached to the Brizo node.
 
 
-### 2. Publish 
+### 3. Publish 
 TBD
-### 3. Retire
-
+### 4. Retire
 TBD
 
 # Implementation Details
@@ -127,6 +129,41 @@ TBD
 
 ### Miner
 
+#### setup libp2p crypto proto
+
+IPFS uses [Libp2p]() to manage the node discovery, key management crypto, and 
+serialize keypairs using [protocol buffer](). So we need to install libp2p crypto.proto module 
+in order to deserialize the IPFS keypairs.
+
+- Install required packages:
+```bash
+pip3 install pybase64 cryptography pyrobuf PyCryptodome
+```
+- Download [crypto.proto](https://raw.githubusercontent.com/libp2p/go-libp2p-core/master/crypto/pb/crypto.proto) Libp2p scheme
+```bash
+wget https://raw.githubusercontent.com/libp2p/go-libp2p-core/master/crypto/pb/crypto.proto
+sudo pyrobuf --install crypto.proto
+```
+- Check crypto.proto
+````python
+import crypto_proto as crypto_proto 
+````
+
+#### sign messages using openssl
+Signing the sha256(message) using the deserialized private key
+```bash
+echo -n "hello world" | openssl dgst -sha256 -sign private.pem -out | xxd -p | tr -d \\n
+42300051abb9b5f16320fc38878e3d3d6f5df726837d962378bc992c0983a7010fe902fa6085f6694e57bd4fa68f5397c18ec32033531375bf9e69a2f8d5a28f892da8b29a2f61c5fec9460668162d959bba5bd6e10b9ffa6eb9c6a233864a04a2e28e1af3f87b2352109bf55b71c52b23677421f4f9f27200e4a7a15012cf1ed2ce9aaf101a70d9351e9988a96f50246cf87309c4a3c4669b2c0af10a9c335016f4552dc06c94cf437dc09b7cc2e072d6e9f037b126bfdb8b4107812dbf13354f282b397a010b32571ac3e91a67052c5b7d5ceb15d3b41da1419e1f5bda30b7e9a88f4fb6d4d5a18b3cc10d1a996a8d382ca3c154082f5d2d50d5d418d63d73
+```
+#### export the exponent and modulus from the public key
+```bash
+$ openssl asn1parse -inform TXT -i -in public.pem -strparse 19
+    0:d=0  hl=4 l= 266 cons: SEQUENCE          
+    4:d=1  hl=4 l= 257 prim:  INTEGER           :B643126ED21D944953DF5572161CE7799F6946AC2FA55D72EF1B8817E8B95788B631F4166DE3388CCC341F7ADC6F1B532098963A8195A6EE409BC71C5F12FE47BBFF31E3F8F033EC2CF5F4AE723A71E26859F5C7D8A0A0B536B1597385DE88D5E5C6F019B0ED165EC70936C3650A684DB10A68767FD740672ECD916228E5955AF4DF10D848FFD1A0C3BB61511C3636443C187D5084893D9D12B02C3F312E25C853B2D86725B1DBDA30E268EC207C0D6BC99D312C4C1AF60AC82B1174984027F138F69779BD7733460402BB59D19B5B1BE7A42C2BBE601C316727671CF813CFBF3D334A52367E130BB5BD0BB482014055BDF6B0077286B01811DD698AD4E3BD7D
+  265:d=1  hl=2 l=   3 prim:  INTEGER           :010001
+```
+The exponent is: `010001`
+The modulus is : `B643126ED21D944953DF5572161CE7799F6946AC2FA55D72EF1B8817E8B95788B631F4166DE3388CCC341F7ADC6F1B532098963A8195A6EE409BC71C5F12FE47BBFF31E3F8F033EC2CF5F4AE723A71E26859F5C7D8A0A0B536B1597385DE88D5E5C6F019B0ED165EC70936C3650A684DB10A68767FD740672ECD916228E5955AF4DF10D848FFD1A0C3BB61511C3636443C187D5084893D9D12B02C3F312E25C853B2D86725B1DBDA30E268EC207C0D6BC99D312C4C1AF60AC82B1174984027F138F69779BD7733460402BB59D19B5B1BE7A42C2BBE601C316727671CF813CFBF3D334A52367E130BB5BD0BB482014055BDF6B0077286B01811DD698AD4E3BD7D`
 #### export keypairs
 
 The `exporter.py` module does:
@@ -173,7 +210,7 @@ def verify(public_key, signature, message, hash_algorithm="SHA-256"):
      
 ```
 ### Keeper
-#### verifying on-chain
+#### verify ipfs on chain
 
 This is the contract interface of (`RSAVerifier.sol`):
 
@@ -182,7 +219,8 @@ This is the contract interface of (`RSAVerifier.sol`):
   * All the parameters MUST be in (Hexadecimal representation)
   * The exponent length MUST be equal to the modulus length
   * This method will hash the data using sha256, then uses
-  * Modulus (generated from the public key) to 
+  * Modulus (generated from the public key) and the exponent to
+  * verify the signature. 
   * @param _data to verify 
   * @param _s is signature
   * @param _e is the exponent
